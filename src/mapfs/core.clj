@@ -1,6 +1,8 @@
 (ns mapfs.core
   (:require [clojure.string :as str]
             [clojure.edn :as edn])
+  (:import [jline TerminalFactory TerminalFactory$Flavor]
+           [jline.console ConsoleReader])
   (:gen-class :main true))
 
 (defonce ^:private FS_ROOT (atom nil))
@@ -158,17 +160,39 @@
       (into ["Available commands:\n"])
       (str/join "\n" ))))
 
+(def ^:private completion-handler
+  (reify 
+   jline.console.completer.Completer 
+    (complete [_ buffer cursor candidates]
+      (let [part (subs buffer 0 cursor)
+            indx (.lastIndexOf part " ")
+            part (if (pos? indx) (subs part (.lastIndexOf part " ")) part)
+            part (str/trim part)
+            ks (map str (keys (get-in @FS_ROOT @CURRENT_DIR)))]
+        (if (empty? part)
+          (.addAll candidates ks) 
+          (.addAll candidates (filter #(.startsWith % part) ks)))
+        (inc indx)))))
+
+(defn- init-terminal []
+  (let [term (TerminalFactory/create)
+        console (ConsoleReader. System/in System/out)]
+    (.init term)
+    (.addCompleter console completion-handler)
+    [term console]))
+
 (defn -main [& args]
   (println "Map FS - 0.1.0")  
   (when (pos? (count args))
     (load-fs! (first args))
     (println "Loading Filesystem: " (first args)))
-  (let [bindings {#'*ns* *ns*}] 
+  (let [bindings {#'*ns* *ns*}
+        [term console] (init-terminal)] 
     (push-thread-bindings bindings)
     (in-ns 'mapfs.core)
     (loop []
       (println)
-      (let [v (read-line)]
+      (let [v (.readLine console "mapfs> ")]
         (when-not (= "exit" v)
           (try 
             (println (eval (read-string (str "(" v ")")))) 
