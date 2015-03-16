@@ -99,6 +99,7 @@
   [(pop path) (last path)])
 
 (defn rename
+  "Rename file to path. Arguments should be [:src :key :path] [:dest :key :path]."
   [src dest]
   (let [src-path (resolve-path src)
         src-val (get-in @FS_ROOT src-path)
@@ -151,6 +152,13 @@
           (swap! FS_ROOT update-in @CURRENT_DIR dissoc key-name))
         (str "Path removed: " path)))))
 
+(defn mv
+  "Move file to path. (Currently an alias to rename)."
+  [src dest]
+  (rename src dest))
+
+;; SHELL COMMANDS
+
 (defn help
   "Print available commands." 
   []
@@ -159,6 +167,8 @@
       (map (fn [[k v]] (str "  " k " - " (:doc (meta v)))) publics)
       (into ["Available commands:\n"])
       (str/join "\n" ))))
+
+;; SHELL CODE
 
 (def ^:private completion-handler
   (reify 
