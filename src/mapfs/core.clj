@@ -1,6 +1,8 @@
 (ns mapfs.core
   (:require [clojure.string :as str]
-            [clojure.edn :as edn])
+            [clojure.edn :as edn]
+            ;[clojure.java.shell :refer [sh]]
+            )
   (:import [jline TerminalFactory TerminalFactory$Flavor]
            [jline.console ConsoleReader])
   (:gen-class :main true))
@@ -156,6 +158,14 @@
   "Move file to path. (Currently an alias to rename)."
   [src dest]
   (rename src dest))
+
+;(defn edit
+;  [value]
+;  (let [f (java.io.File/createTempFile "mapfs" "edn")]
+;    (spit f (pr-str value))
+;    (println f)
+;    (sh "vim" (.getAbsolutePath f)) ;; Doesn't work :(
+;    ))
 
 ;; SHELL COMMANDS
 
