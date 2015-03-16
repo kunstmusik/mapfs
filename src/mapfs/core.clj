@@ -4,8 +4,8 @@
   (:gen-class :main true))
 
 (defonce ^:private FS_ROOT (atom nil))
-
 (defonce ^:private CURRENT_DIR (atom []))
+(defonce ^:private FS_FILENAME (atom nil))
 
 (defn write-fs! 
   "Write current filesystem to filename as EDN."
@@ -18,8 +18,19 @@
   (if (.exists (java.io.File. filename))
     (with-open [r (java.io.PushbackReader. 
                     (clojure.java.io/reader filename))]
-      (reset! FS_ROOT (edn/read r)))
+      (reset! FS_ROOT (edn/read r))
+      (reset! FS_FILENAME filename))
     (throw (Exception. "File not found :("))))
+
+(defn save-fs! 
+  "Save current filesystem to file used with load-fs!"
+  []
+  (let [v @FS_FILENAME]
+    (if (nil? v) 
+      (str "ERROR: current filesystem not loaded from file")
+      (do
+        (write-fs! v)
+        (str "Saved filesystem to: " v)))))
 
 (defn mount 
   "Mounts a map as the current filesystem."
@@ -33,8 +44,9 @@
 
 (defn- resolve-path
   [parts]
+  (let [p (if (keyword? parts) [parts] parts)]
   (reduce #(if (= :.. %2) (pop %1) (conj %1 %2))
-          @CURRENT_DIR parts))
+          @CURRENT_DIR p)))
 
 (defn ls 
   "List keys in current directory of filesystem, or given path."
@@ -79,6 +91,24 @@
   [key-name value]
   (swap! FS_ROOT assoc-in (into @CURRENT_DIR [key-name]) value))
 
+(defn path-split
+  "Splits a path into base and f, where f is the last key and base is the rest."
+  [path]
+  [(pop path) (last path)])
+
+(defn rename
+  [src dest]
+  (let [src-path (resolve-path src)
+        src-val (get-in @FS_ROOT src-path)
+        [base f] (path-split src-path)
+        dest-path (resolve-path dest)]
+    (cp src-path dest-path) 
+    (if (zero? (count base))
+      (swap! FS_ROOT dissoc f)
+      (swap! FS_ROOT update-in base dissoc f))
+    (println base " : " f)
+    (str "Renamed from " src-path " to " dest-path)))
+
 (defn mkdir 
   "Creates an empty directory (map) with key-name in working directory."
   [key-name]
@@ -95,7 +125,7 @@
       (str "Error: path is nil: " path)
       (is-dir? v) 
       (do 
-        (if (zero? (count @CURRENT_DIR)) 
+        (if (= 1 (count path)) 
           (swap! FS_ROOT dissoc key-name)
           (swap! FS_ROOT update-in @CURRENT_DIR dissoc key-name))
         (str "Path removed: " path))
@@ -114,7 +144,7 @@
       (str "Error: Path is not a directory: " path)
       :else
       (do 
-        (if (zero? (count @CURRENT_DIR)) 
+        (if (= 1 (count path)) 
           (swap! FS_ROOT dissoc key-name)
           (swap! FS_ROOT update-in @CURRENT_DIR dissoc key-name))
         (str "Path removed: " path)))))
