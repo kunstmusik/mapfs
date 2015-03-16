@@ -130,17 +130,21 @@
 
 (defn -main [& args]
   (println "Map FS - 0.1.0")  
-  (in-ns 'mapfs.core)
   (when (pos? (count args))
     (load-fs! (first args))
     (println "Loading Filesystem: " (first args)))
-  (loop []
-    (println)
-    (let [v (read-line)]
-      (when-not (= "exit" v)
-        (try 
-          (println (eval (read-string (str "(" v ")")))) 
-          (catch Exception e
-            (println "  ERROR: Invalid command")))
-        (recur)
-        ))))
+  (let [bindings {#'*ns* *ns*}] 
+    (push-thread-bindings bindings)
+    (in-ns 'mapfs.core)
+    (loop []
+      (println)
+      (let [v (read-line)]
+        (when-not (= "exit" v)
+          (try 
+            (println (eval (read-string (str "(" v ")")))) 
+            (catch Exception e
+              (println "  ERROR: Invalid command")))
+          (recur)
+          )))
+    (pop-thread-bindings)
+    ))
