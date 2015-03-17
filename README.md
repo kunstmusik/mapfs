@@ -8,6 +8,8 @@ Use a Clojure map like a filesystem.
 2. Use shell-like commands to navigate map, create values and "directories" (embeded maps)
 3. Use tab for key path completions
 
+![](http://kunstmusik.com/mapfs.gif)
+
 ## Credits
 
 * This library uses the wonderful [Jline2](https://github.com/jline/jline2/) library for
