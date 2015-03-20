@@ -93,7 +93,14 @@
 (defn put 
   "Associates a new value in current directory with key-name/value." 
   [key-name value]
-  (swap! FS_ROOT assoc-in (into @CURRENT_DIR [key-name]) value))
+  (let [path (resolve-path key-name)
+        existed (get-in @FS_ROOT path)] 
+    (swap! FS_ROOT assoc-in (into @CURRENT_DIR [key-name]) value)
+    (if (nil? existed)
+      (str "Added value for " key-name)  
+      (str "Updated value for key " key-name)))
+  
+  )
 
 (defn path-split
   "Splits a path into base and f, where f is the last key and base is the rest."
