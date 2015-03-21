@@ -19,12 +19,12 @@
 (defn load-fs! 
   "Load EDN from filename as current filesystem."
   [filename]
+  (reset! FS_FILENAME filename)
   (if (.exists (java.io.File. filename))
     (with-open [r (java.io.PushbackReader. 
                     (clojure.java.io/reader filename))]
-      (reset! FS_ROOT (edn/read r))
-      (reset! FS_FILENAME filename))
-    (throw (Exception. "File not found :("))))
+      (reset! FS_ROOT (edn/read r)))
+    (reset! FS_ROOT {})))
 
 (defn save-fs! 
   "Save current filesystem to file used with load-fs!"
