@@ -224,7 +224,7 @@
           (try 
             (println (eval (read-string (str "(" v ")")))) 
             (catch Exception e
-              (println "  ERROR: Invalid command")))
+              (println "  ERROR: Invalid command:" (.getMessage e))))
           (recur)
           )))
     (pop-thread-bindings)
