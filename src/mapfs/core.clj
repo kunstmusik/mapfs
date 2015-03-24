@@ -4,12 +4,15 @@
             ;[clojure.java.shell :refer [sh]]
             )
   (:import [jline TerminalFactory TerminalFactory$Flavor]
-           [jline.console ConsoleReader])
+           [jline.console ConsoleReader]
+           [java.lang ProcessBuilder$Redirect])
   (:gen-class :main true))
 
 (defonce ^:private FS_ROOT (atom nil))
 (defonce ^:private CURRENT_DIR (atom []))
 (defonce ^:private FS_FILENAME (atom nil))
+(defonce ^:private CONSOLE (atom nil))
+(defonce ^:private TERMINAL (atom nil))
 
 (defn write-fs! 
   "Write current filesystem to filename as EDN."
@@ -166,13 +169,6 @@
   [src dest]
   (rename src dest))
 
-;(defn edit
-;  [value]
-;  (let [f (java.io.File/createTempFile "mapfs" "edn")]
-;    (spit f (pr-str value))
-;    (println f)
-;    (sh "vim" (.getAbsolutePath f)) ;; Doesn't work :(
-;    ))
 
 ;; SHELL COMMANDS
 
@@ -203,10 +199,30 @@
 
 (defn- init-terminal []
   (let [term (TerminalFactory/create)
-        console (ConsoleReader. System/in System/out)]
+        console (ConsoleReader. System/in System/out term)]
     (.init term)
     (.addCompleter console completion-handler)
+    (reset! TERMINAL term)
+    (reset! CONSOLE console)
     [term console]))
+
+(defn edit
+  [value]
+  (let [f (java.io.File/createTempFile "mapfs" "edn")]
+    (spit f (pr-str value))
+    (println f)
+    (.shutdown @CONSOLE)
+    ;(.restore @TERMINAL)
+    (let [pb (ProcessBuilder. ["vim" (.getAbsolutePath f)])
+          _ (.redirectInput pb ProcessBuilder$Redirect/INHERIT)
+          _ (.redirectOutput pb ProcessBuilder$Redirect/INHERIT)
+          p (.start pb)]
+      (.waitFor p))
+    (reset! CONSOLE (ConsoleReader. System/in System/out @TERMINAL))
+    (.reset @TERMINAL)
+    ;(init-terminal)
+    (slurp f)  
+    ))
 
 (defn -main [& args]
   (println "Map FS - 0.1.0")  
@@ -219,7 +235,7 @@
     (in-ns 'mapfs.core)
     (loop []
       (println)
-      (let [v (.readLine console "mapfs> ")]
+      (let [v (.readLine @CONSOLE "mapfs> ")]
         (when-not (= "exit" v)
           (try 
             (println (eval (read-string (str "(" v ")")))) 
