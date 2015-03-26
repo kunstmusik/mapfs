@@ -59,7 +59,7 @@
   "List keys in current directory of filesystem, or given path."
   [& path-keys]
   (->>
-    (keys (get-in @FS_ROOT (resolve-path path-keys)))
+    (sort (keys (get-in @FS_ROOT (resolve-path path-keys))))
     (map 
       #(let [path (conj @CURRENT_DIR %)
              v (get-in @FS_ROOT path)]
