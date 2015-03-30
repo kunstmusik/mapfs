@@ -39,10 +39,11 @@
         (write-fs! v)
         (str "Saved filesystem to: " v)))))
 
-(defn mount 
+(defn mount! 
   "Mounts a map as the current filesystem."
   [m] 
-  (reset! FS_ROOT m))
+  (reset! FS_ROOT m)
+  (reset! CURRENT_DIR []))
 
 (defn is-dir?
   "Checks if value is a directory (is a map and does not have :tag key)"
@@ -75,8 +76,8 @@
 
 (defn cd 
   "Changes working directory to new path. Can use :.. as relative location, one up in path."
-  [& parts]
-  (let [new-path (resolve-path parts)]
+  [key-path]
+  (let [new-path (resolve-path key-path)]
     (reset! CURRENT_DIR new-path)
     (str "Current path: " new-path)))
 
@@ -90,8 +91,9 @@
 
 (defn cat 
   "Prints value of :key-name associated in current directory." 
-  [key-name]
-  (get-in @FS_ROOT (into @CURRENT_DIR [key-name])))
+  [key-path]
+  (get-in @FS_ROOT 
+          (resolve-path key-path)))
 
 (defn put 
   "Associates a new value in current directory with key-name/value." 
