@@ -53,14 +53,22 @@
 (defn- resolve-path
   [parts]
   (let [p (if (keyword? parts) [parts] parts)]
-  (reduce #(if (= :.. %2) (pop %1) (conj %1 %2))
+  (reduce #(case %2
+            :.. (pop %1) 
+            :. %1
+            (conj %1 %2))
           @CURRENT_DIR p)))
+
+;(defn split-path-regex
+;  [parts]
+  
+;  )
 
 (defn ls 
   "List keys in current directory of filesystem, or given path."
-  [& path-keys]
+  [& key-path]
   (->>
-    (sort (keys (get-in @FS_ROOT (resolve-path path-keys))))
+    (sort (keys (get-in @FS_ROOT (resolve-path key-path))))
     (map 
       #(let [path (conj @CURRENT_DIR %)
              v (get-in @FS_ROOT path)]
