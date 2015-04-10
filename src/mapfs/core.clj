@@ -82,10 +82,20 @@
   []
   @CURRENT_DIR)
 
+(defn keypath-exists?
+  "Check if keypath vector exists in map"
+  [m kp]
+  (not= ::key-not-found
+     (get-in m kp ::key-not-found)))
+
 (defn cd 
   "Changes working directory to new path. Can use :.. as relative location, one up in path."
   [key-path]
   (let [new-path (resolve-path key-path)]
+    (when-not (keypath-exists? @FS_ROOT new-path) 
+      (throw (Exception. (str "Error: Keypath not found: " new-path))))
+    (when-not (map? (get-in @FS_ROOT new-path)) 
+      (throw (Exception. (str "Error: Keypath is not a directory: " new-path))))
     (reset! CURRENT_DIR new-path)
     (str "Current path: " new-path)))
 
