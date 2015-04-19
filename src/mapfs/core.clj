@@ -14,6 +14,11 @@
 (defonce ^:private CONSOLE (atom nil))
 (defonce ^:private TERMINAL (atom nil))
 
+(deftype PathList [paths])
+
+(defn pathlist? [p]
+  (instance? PathList p))
+
 (defn write-fs! 
   "Write current filesystem to filename as EDN."
   [filename]
@@ -50,32 +55,51 @@
   [v] 
   (and (map? v) (not (:tag v))))
 
+(defn path-split
+  "Splits a path into base and f, where f is the last key and base is the rest."
+  [path]
+  (let [p (into [] path)] 
+    (if (empty? path)
+    [[] []] 
+    [(pop p) (last p)])))
+
+(defn regex? 
+  [r]
+  (instance? java.util.regex.Pattern r))
+
 (defn- resolve-path
   [parts]
-  (let [p (if (keyword? parts) [parts] parts)]
-  (reduce #(case %2
-            :.. (pop %1) 
-            :. %1
-            (conj %1 %2))
-          @CURRENT_DIR p)))
-
-;(defn split-path-regex
-;  [parts]
-  
-;  )
+  (let [p (if (keyword? parts) [parts] parts)
+        [base last-path] (path-split p)]
+    (if (regex? last-path)
+      (let [base-path (resolve-path base)
+            base-dir (get-in @FS_ROOT base-path) 
+            ks (filter #(re-matches last-path (str %)) (keys base-dir))]
+        (if (empty? ks)
+          nil
+          (PathList. (map #(conj base-path %) ks)))) 
+      (reduce #(case %2
+                 :.. (pop %1) 
+                 :. %1
+                 (conj %1 %2))
+              @CURRENT_DIR p))))
 
 (defn ls 
   "List keys in current directory of filesystem, or given path."
   [& key-path]
+  (let [p (resolve-path key-path)
+        values (if (pathlist? p)
+                 (sort (.paths p)) 
+                 (map #(conj p %) (sort (keys (get-in @FS_ROOT p)))))]
   (->>
-    (sort (keys (get-in @FS_ROOT (resolve-path key-path))))
+    values
     (map 
-      #(let [path (conj @CURRENT_DIR %)
-             v (get-in @FS_ROOT path)]
+      #(let [v (get-in @FS_ROOT %)
+             k (last %)] 
          (if (is-dir? v)
-           (str "D " %) 
-           (str "- " %))))
-    (str/join "\n")))
+         (str "D " k) 
+         (str "- " k))))
+    (str/join "\n"))))
 
 (defn pwd 
   "Print current working directory."
@@ -124,11 +148,6 @@
       (str "Updated value for key " key-name)))
   
   )
-
-(defn path-split
-  "Splits a path into base and f, where f is the last key and base is the rest."
-  [path]
-  [(pop path) (last path)])
 
 (defn rename
   "Rename file to path. Arguments should be [:src :key :path] [:dest :key :path]."
