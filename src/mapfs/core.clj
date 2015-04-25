@@ -1,8 +1,7 @@
 (ns mapfs.core
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
-            ;[clojure.java.shell :refer [sh]]
-            )
+            [clojure.pprint :refer [pprint]])
   (:import [jline TerminalFactory TerminalFactory$Flavor]
            [jline.console ConsoleReader]
            [java.lang ProcessBuilder$Redirect])
@@ -22,7 +21,7 @@
 (defn write-fs! 
   "Write current filesystem to filename as EDN."
   [filename]
-  (spit filename (pr-str @FS_ROOT)))
+  (spit filename (with-out-str (pprint @FS_ROOT))))
 
 (defn load-fs! 
   "Load EDN from filename as current filesystem."
@@ -280,6 +279,11 @@
       (println "evaluating .mapfsrc: " rcfilename)
       (read-file rcfilename))))
 
+(defn- mprint [s]
+  (if (string? s)
+    (println s)
+    (pprint s)))
+
 (defn -main [& args]
   (println "Map FS - 0.1.0")  
   (when (pos? (count args))
@@ -295,7 +299,7 @@
       (let [v (.readLine @CONSOLE "mapfs> ")]
         (when-not (= "exit" v)
           (try 
-            (println (eval (read-string (str "(" v ")")))) 
+            (mprint (eval (read-string (str "(" v ")")))) 
             (catch Exception e
               (println "  ERROR: Invalid command:" (.getMessage e))))
           (recur)
