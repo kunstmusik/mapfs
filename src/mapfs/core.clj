@@ -263,6 +263,13 @@
     (slurp f)  
     ))
 
+(defn- read-mapfsrc []
+  (let [rcfilename (str (System/getProperty "user.home") java.io.File/separator ".mapfsrc")
+        f (java.io.File. rcfilename) ]
+    (when (.exists f)
+      (println "evaluating .mapfsrc: " rcfilename)
+      (eval (read-string (slurp rcfilename))))) )
+
 (defn -main [& args]
   (println "Map FS - 0.1.0")  
   (when (pos? (count args))
@@ -272,6 +279,7 @@
         [term console] (init-terminal)] 
     (push-thread-bindings bindings)
     (in-ns 'mapfs.core)
+    (println (read-mapfsrc)) 
     (loop []
       (println)
       (let [v (.readLine @CONSOLE "mapfs> ")]
