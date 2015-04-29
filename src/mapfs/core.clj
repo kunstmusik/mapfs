@@ -144,9 +144,7 @@
     (swap! FS_ROOT assoc-in (into @CURRENT_DIR [key-name]) value)
     (if (nil? existed)
       (str "Added value for " key-name)  
-      (str "Updated value for key " key-name)))
-  
-  )
+      (str "Updated value for key " key-name))))
 
 (defn rename
   "Rename file to path. Arguments should be [:src :key :path] [:dest :key :path]."
@@ -215,7 +213,8 @@
   []
   (let [publics (sort-by first (ns-publics 'mapfs.core))]
     (->>
-      (map (fn [[k v]] (str "  " k " - " (:doc (meta v)))) publics)
+      (filter #(:doc (meta (second %))) publics)
+      (map (fn [[k v]] (str "  " k " - " (:doc (meta v)))))
       (into ["Available commands:\n"])
       (str/join "\n" ))))
 
