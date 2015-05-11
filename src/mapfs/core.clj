@@ -66,6 +66,15 @@
   [r]
   (instance? java.util.regex.Pattern r))
 
+(defn- get-absolute-path
+  [path]
+  (reduce 
+    #(case %2
+       :.. (pop %1) 
+       :. %1
+       (conj %1 %2))
+    @CURRENT_DIR path))
+
 (defn- resolve-path
   [parts]
   (let [p (if (keyword? parts) [parts] parts)
@@ -77,28 +86,36 @@
         (if (empty? ks)
           nil
           (PathList. (map #(conj base-path %) ks)))) 
-      (reduce #(case %2
-                 :.. (pop %1) 
-                 :. %1
-                 (conj %1 %2))
-              @CURRENT_DIR p))))
+      (PathList. [(get-absolute-path p)]))))
+
+(defn- resolve-single-path
+  [parts]
+  (let [paths (resolve-path parts)
+        c (count (.paths paths))
+        p (first (.paths paths))]
+    (if (not= 1 c)
+      (throw (Exception. (str "Error: Multiple paths found"))))
+      p))
 
 (defn ls 
   "List keys in current directory of filesystem, or given path."
   [& key-path]
   (let [p (resolve-path key-path)
-        values (if (pathlist? p)
-                 (sort (.paths p)) 
-                 (map #(conj p %) (sort (keys (get-in @FS_ROOT p)))))]
-  (->>
-    values
-    (map 
-      #(let [v (get-in @FS_ROOT %)
-             k (last %)] 
-         (if (is-dir? v)
-         (str "D " k) 
-         (str "- " k))))
-    (str/join "\n"))))
+        paths (.paths p)
+        values 
+        (if (= 1 (count paths)) 
+          (map #(conj (first paths) %) 
+               (sort (keys (get-in @FS_ROOT (first paths)))))
+          (sort paths))]
+    (->>
+      values
+      (map 
+        #(let [v (get-in @FS_ROOT %)
+               k (last %)] 
+           (if (is-dir? v)
+             (str "D " k) 
+             (str "- " k))))
+      (str/join "\n"))))
 
 (defn pwd 
   "Print current working directory."
@@ -114,7 +131,7 @@
 (defn cd 
   "Changes working directory to new path. Can use :.. as relative location, one up in path."
   [key-path]
-  (let [new-path (resolve-path key-path)]
+  (let [new-path (resolve-single-path key-path)]
     (when-not (keypath-exists? @FS_ROOT new-path) 
       (throw (Exception. (str "Error: Keypath not found: " new-path))))
     (when-not (map? (get-in @FS_ROOT new-path)) 
@@ -123,36 +140,43 @@
     (str "Current path: " new-path)))
 
 (defn cp 
-  "Copy value from [src path] to [dest path]. src and dest should be relative path vectors."
+  "Copy value from [src path] to [dest path]. src and dest should be
+  relative path vectors."
   [src dest]
   (let [src-path (resolve-path src)
-        dest-path (resolve-path dest)]
-    (swap! FS_ROOT assoc-in dest-path (get-in @FS_ROOT src-path))
-    (str "Copied value from " src-path " to " dest-path)))
+        dest-path (resolve-single-path dest)]
+    (->> 
+      (.paths src-path)
+      (map 
+        #(do 
+           (swap! FS_ROOT assoc-in dest-path 
+                  (get-in @FS_ROOT %))
+           (str "Copied value from " % " to " dest-path))) 
+      (str/join "\n"))))
 
 (defn cat 
   "Prints value of :key-name associated in current directory." 
   [key-path]
-  (get-in @FS_ROOT 
-          (resolve-path key-path)))
+  (let [p (resolve-single-path key-path)] 
+    (get-in @FS_ROOT p)))
 
 (defn put 
   "Associates a new value in current directory with key-name/value." 
   [key-name value]
-  (let [path (resolve-path key-name)
-        existed (get-in @FS_ROOT path)] 
-    (swap! FS_ROOT assoc-in (into @CURRENT_DIR [key-name]) value)
-    (if (nil? existed)
+  (let [path (resolve-single-path key-name)
+        existed (keypath-exists? @FS_ROOT path)] 
+    (swap! FS_ROOT assoc-in path value)
+    (if existed 
       (str "Added value for " key-name)  
       (str "Updated value for key " key-name))))
 
 (defn rename
   "Rename file to path. Arguments should be [:src :key :path] [:dest :key :path]."
   [src dest]
-  (let [src-path (resolve-path src)
+  (let [src-path (resolve-single-path src)
         src-val (get-in @FS_ROOT src-path)
         [base f] (path-split src-path)
-        dest-path (resolve-path dest)]
+        dest-path (resolve-single-path dest)]
     (cp src-path dest-path) 
     (if (zero? (count base))
       (swap! FS_ROOT dissoc f)
@@ -169,7 +193,7 @@
 (defn rmdir 
   "Removes a directory"
   [key-name]
-  (let [path (resolve-path [key-name])
+  (let [path (resolve-single-path [key-name])
         v (get-in @FS_ROOT path)]
     (cond 
       (nil? v) 
@@ -183,10 +207,11 @@
       :else
       (str "Error: Path is not a directory: " path))))
 
+;; todo - switch to using pathlist
 (defn rm 
   "Removes a value"
   [key-name]
-  (let [path (resolve-path [key-name])
+  (let [path (resolve-single-path [key-name])
         v (get-in @FS_ROOT path)]
     (cond 
       (nil? v) 
