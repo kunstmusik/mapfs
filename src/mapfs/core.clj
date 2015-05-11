@@ -79,6 +79,8 @@
        (conj %1 %2))
     @CURRENT_DIR path))
 
+(declare resolve-single-path)
+
 (defn- resolve-path
   [parts]
   (let [p (if (keyword? parts) [parts] parts)
