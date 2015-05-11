@@ -66,6 +66,10 @@
   [r]
   (instance? java.util.regex.Pattern r))
 
+(defn wildcard-path?
+  [key-path]
+  (regex? (second (path-split key-path))))
+
 (defn- get-absolute-path
   [path]
   (reduce 
@@ -80,7 +84,7 @@
   (let [p (if (keyword? parts) [parts] parts)
         [base last-path] (path-split p)]
     (if (regex? last-path)
-      (let [base-path (resolve-path base)
+      (let [base-path (resolve-single-path base)
             base-dir (get-in @FS_ROOT base-path) 
             ks (filter #(re-matches last-path (str %)) (keys base-dir))]
         (if (empty? ks)
@@ -103,7 +107,7 @@
   (let [p (resolve-path key-path)
         paths (.paths p)
         values 
-        (if (= 1 (count paths)) 
+        (if (not (wildcard-path? key-path))
           (map #(conj (first paths) %) 
                (sort (keys (get-in @FS_ROOT (first paths)))))
           (sort paths))]
