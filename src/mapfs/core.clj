@@ -292,22 +292,13 @@
     (slurp f)  
     ))
 
-(defn read-file 
-  "Sources in a file by reading/evaluating it as clojure code."
-  [filename]
-  (let [pbr (java.io.PushbackReader. (java.io.StringReader. (slurp filename)))]
-    (loop [o (read pbr false nil)]
-      (when o
-        (eval o)
-        (recur (read pbr false nil))))))
-
 (defn- read-mapfsrc []
   "Initialize mapfs with ~/.mapfsrc if it exists"
   (let [rcfilename (str (System/getProperty "user.home") java.io.File/separator ".mapfsrc")
         f (java.io.File. rcfilename) ]
     (when (.exists f)
       (println "evaluating .mapfsrc: " rcfilename)
-      (read-file rcfilename))))
+      (load-file rcfilename))))
 
 (defn- mprint [s]
   (if (string? s)
